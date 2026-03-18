@@ -1,0 +1,13 @@
+{
+  "name": "npm-to-exe-converter-engine",
+  "version": "1.0.0",
+  "description": "Converter engine utilities for NPM → EXE pipeline",
+  "main": "analyzer.js",
+  "scripts": {
+    "analyze": "node analyzer.js",
+    "optimize": "node optimizer.js"
+  },
+  "keywords": ["electron", "converter", "packager", "npm", "exe"],
+  "author": "Ranjith R",
+  "license": "MIT"
+}
