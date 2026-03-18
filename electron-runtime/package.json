@@ -1,0 +1,69 @@
+{
+  "name": "electron-runtime-template",
+  "version": "1.0.0",
+  "description": "Electron Runtime Shell — NPM to EXE Converter",
+  "main": "src/main.js",
+  "private": true,
+  "scripts": {
+    "start":         "electron .",
+    "dist":          "electron-builder --win --x64",
+    "dist:portable": "electron-builder --win portable --x64",
+    "dist:nsis":     "electron-builder --win nsis --x64"
+  },
+  "build": {
+    "appId": "com.npmtoexe.app",
+    "productName": "MyApplication",
+    "copyright": "Developed By Ranjith R",
+    "directories": {
+      "output": "../output",
+      "buildResources": "assets"
+    },
+    "files": [
+      "src/**/*",
+      "preload/**/*",
+      "webapp/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "webapp/assets/videos/**/*",
+      "webapp/**/*.wasm"
+    ],
+    "compression": "maximum",
+    "win": {
+      "target": [
+        { "target": "nsis",     "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon": "assets/icon.ico",
+      "requestedExecutionLevel": "asInvoker",
+      "verifyUpdateCodeSignature": false,
+      "signingHashAlgorithms": ["sha256"]
+    },
+    "nsis": {
+      "oneClick":                      false,
+      "perMachine":                    false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut":         true,
+      "createStartMenuShortcut":       true,
+      "deleteAppDataOnUninstall":      false,
+      "include":                       null
+    },
+    "portable": {
+      "requestExecutionLevel": "user"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Utility"
+    },
+    "mac": {
+      "target": ["dmg", "zip"],
+      "category": "public.app-category.developer-tools"
+    }
+  },
+  "devDependencies": {
+    "electron":         "^28.2.0",
+    "electron-builder": "^24.9.1"
+  }
+}
