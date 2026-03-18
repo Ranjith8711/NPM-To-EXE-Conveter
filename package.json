@@ -1,0 +1,19 @@
+{
+  "name": "npm-to-exe-converter",
+  "version": "1.0.0",
+  "description": "Production-grade NPM web project to Windows .exe converter",
+  "private": true,
+  "author": "Ranjith R",
+  "license": "MIT",
+  "scripts": {
+    "analyze":  "node converter-engine/analyzer.js input-project/",
+    "optimize": "node converter-engine/optimizer.js",
+    "icon":     "node build-tools/icon-generator.js electron-runtime/assets",
+    "build":    "python python-automation/build.py",
+    "demo":     "node -e \"require('child_process').spawn('npx',['serve','demo-app','-p','3000'],{stdio:'inherit',shell:true})\""
+  },
+  "keywords": [
+    "electron", "npm", "exe", "desktop", "packager",
+    "react", "vue", "vite", "webpack", "windows"
+  ]
+}
