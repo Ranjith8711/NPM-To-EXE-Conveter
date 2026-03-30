@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NPM → EXE Demo | BEST TEAM</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
+
+  :root {
+    --bg:       #0d0d14;
+    --surface:  #13131f;
+    --border:   #1e1e35;
+    --accent:   #5b5ef5;
+    --accent2:  #00e5c0;
+    --text:     #e8e8f5;
+    --dim:      #5a5a80;
+    --success:  #00e5c0;
+    --error:    #ff4d6d;
+    --warn:     #ffd166;
+    --radius:   8px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    opacity: 0.4;
+  }
+
+  .container { max-width: 1000px; margin: 0 auto; padding: 2rem; position: relative; }
+
+  /* ── Header ── */
+  header {
+    text-align: center;
+    padding: 4rem 0 3rem;
+    position: relative;
+  }
+  .badge {
+    display: inline-block;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .7rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    padding: .35em 1em;
+    border-radius: 999px;
+    margin-bottom: 1.5rem;
+  }
+  h1 {
+    font-size: clamp(2rem, 6vw, 3.5rem);
+    font-weight: 800;
+    line-height: 1.1;
+    background: linear-gradient(135deg, #fff 40%, var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .subtitle {
+    color: var(--dim);
+    margin-top: .8rem;
+    font-size: 1.1rem;
+  }
+
+  /* ── Pipeline ── */
+  .pipeline {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin: 3rem 0;
+  }
+  .stage {
+    background: var(--surface);
+    padding: 1.5rem 1rem;
+    text-align: center;
+    position: relative;
+    transition: background .2s;
+    cursor: default;
+  }
+  .stage:hover { background: #17172a; }
+  .stage-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .65rem;
+    color: var(--accent);
+    letter-spacing: .1em;
+    display: block;
+    margin-bottom: .5rem;
+  }
+  .stage-icon { font-size: 1.6rem; display: block; margin-bottom: .5rem; }
+  .stage-label { font-size: .8rem; color: var(--dim); font-weight: 700; }
+
+  /* ── Terminal ── */
+  .terminal {
+    background: #0a0a10;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0;
+    overflow: hidden;
+    margin: 2rem 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .82rem;
+  }
+  .term-bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: .6rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dot-r { background: #ff5f57; }
+  .dot-y { background: #febc2e; }
+  .dot-g { background: #28c840; }
+  .term-title { color: var(--dim); font-size: .75rem; margin-left: auto; }
+  .term-body { padding: 1.2rem 1.4rem; line-height: 1.7; }
+  .t-dim    { color: #3a3a5c; }
+  .t-blue   { color: var(--accent); }
+  .t-green  { color: var(--success); }
+  .t-yellow { color: var(--warn); }
+  .t-bold   { color: #fff; font-weight: 700; }
+
+  /* Blinking cursor */
+  .cursor::after {
+    content: '█';
+    animation: blink 1s step-end infinite;
+    color: var(--accent2);
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  /* ── Cards ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 2rem 0; }
+  @media(max-width:600px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+  }
+  .card h3 {
+    font-size: .85rem;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--accent2);
+    margin-bottom: 1rem;
+  }
+
+  /* Framework tags */
+  .tags { display: flex; flex-wrap: wrap; gap: .5rem; }
+  .tag {
+    background: #1a1a2e;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .2em .7em;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .75rem;
+    color: var(--accent);
+  }
+
+  /* API list */
+  .api-list { list-style: none; }
+  .api-list li {
+    padding: .35rem 0;
+    border-bottom: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .75rem;
+    color: var(--dim);
+  }
+  .api-list li:last-child { border-bottom: none; }
+  .api-list .fn { color: var(--accent2); }
+
+  /* ── Desktop API demo ── */
+  .demo-section { margin: 2rem 0; }
+  .demo-section h2 {
+    font-size: 1rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: var(--dim);
+    margin-bottom: 1rem;
+  }
+  .btn-row { display: flex; flex-wrap: wrap; gap: .6rem; }
+  .btn {
+    background: #1a1a30;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    padding: .5em 1.2em;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .78rem;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+  }
+  .btn:hover { background: var(--accent); color: #fff; }
+  .btn.green { border-color: var(--accent2); color: var(--accent2); }
+  .btn.green:hover { background: var(--accent2); color: #000; }
+
+  #api-output {
+    margin-top: 1rem;
+    background: #0a0a10;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .78rem;
+    color: var(--success);
+    min-height: 60px;
+    white-space: pre-wrap;
+  }
+
+  /* ── Footer ── */
+  footer {
+    text-align: center;
+    padding: 3rem 0 2rem;
+    color: var(--dim);
+    font-size: .8rem;
+    border-top: 1px solid var(--border);
+    margin-top: 4rem;
+  }
+  footer strong { color: var(--text); }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="badge">✦ BEST TEAM ✦</div>
+    <h1>NPM Project<br/>→ Windows EXE</h1>
+    <p class="subtitle">Production-grade desktop packaging for any NPM web app</p>
+  </header>
+
+  <!-- Pipeline visualization -->
+  <div class="pipeline">
+    <div class="stage">
+      <span class="stage-num">01</span>
+      <span class="stage-icon">📂</span>
+      <span class="stage-label">Validate Project</span>
+    </div>
+    <div class="stage">
+      <span class="stage-num">02</span>
+      <span class="stage-icon">📦</span>
+      <span class="stage-label">Install Deps</span>
+    </div>
+    <div class="stage">
+      <span class="stage-num">03</span>
+      <span class="stage-icon">🏗️</span>
+      <span class="stage-label">Web Build</span>
+    </div>
+    <div class="stage">
+      <span class="stage-num">04</span>
+      <span class="stage-icon">⚡</span>
+      <span class="stage-label">Electron Prep</span>
+    </div>
+    <div class="stage">
+      <span class="stage-num">05</span>
+      <span class="stage-icon">🔧</span>
+      <span class="stage-label">Electron Deps</span>
+    </div>
+    <div class="stage">
+      <span class="stage-num">06</span>
+      <span class="stage-icon">📦</span>
+      <span class="stage-label">Package EXE</span>
+    </div>
+    <div class="stage">
+      <span class="stage-num">07</span>
+      <span class="stage-icon">✅</span>
+      <span class="stage-label">Verify Output</span>
+    </div>
+  </div>
+
+  <!-- Terminal -->
+  <div class="terminal">
+    <div class="term-bar">
+      <div class="dot dot-r"></div>
+      <div class="dot dot-y"></div>
+      <div class="dot dot-g"></div>
+      <div class="term-title">build.bat — BEST TEAM Converter</div>
+    </div>
+    <div class="term-body">
+<span class="t-dim">──────────────────────────────────────────</span>
+<span class="t-blue">NPM Project → Windows EXE Converter</span>
+<span class="t-dim">       Developed by BEST TEAM</span>
+<span class="t-dim">──────────────────────────────────────────</span>
+
+<span class="t-bold">[1/7]</span> Validating project
+  <span class="t-green">✔</span>  Project: <span class="t-bold">my-react-app</span> v1.0.0
+  <span class="t-dim">→</span>  Framework detected: <span class="t-blue">react</span>
+
+<span class="t-bold">[2/7]</span> Installing project dependencies
+  <span class="t-green">✔</span>  Dependencies installed
+
+<span class="t-bold">[3/7]</span> Building web project
+  <span class="t-green">✔</span>  Web build complete → build/
+
+<span class="t-bold">[4/7]</span> Preparing Electron runtime
+  <span class="t-green">✔</span>  Copied 142 files
+
+<span class="t-bold">[5/7]</span> Installing Electron dependencies
+  <span class="t-green">✔</span>  Electron dependencies ready
+
+<span class="t-bold">[6/7]</span> Packaging Windows EXE
+  <span class="t-green">✔</span>  EXE packaging complete
+
+<span class="t-bold">[7/7]</span> Verifying output
+  <span class="t-green">✔</span>  my-react-app Setup 1.0.0.exe  (78.3 MB)
+  <span class="t-green">✔</span>  my-react-app 1.0.0.exe       (75.1 MB)
+
+<span class="t-green t-bold">
+╔══════════════════════════════════╗
+║      BUILD SUCCESSFUL! 🎉        ║
+╚══════════════════════════════════╝</span>
+
+  Time:    4.2 min
+  Output:  output/
+  Files:   2 executable(s)
+  <span class="t-dim">Developed by BEST TEAM</span>
+<span class="cursor"></span>
+    </div>
+  </div>
+
+  <!-- Info cards -->
+  <div class="grid-2">
+    <div class="card">
+      <h3>Supported Frameworks</h3>
+      <div class="tags">
+        <span class="tag">React</span>
+        <span class="tag">Vue 3</span>
+        <span class="tag">Vite</span>
+        <span class="tag">Next.js</span>
+        <span class="tag">Angular</span>
+        <span class="tag">Webpack</span>
+        <span class="tag">Parcel</span>
+        <span class="tag">Vanilla</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Desktop API</h3>
+      <ul class="api-list">
+        <li><span class="fn">desktopAPI.getAppInfo()</span></li>
+        <li><span class="fn">desktopAPI.clipboard.write()</span></li>
+        <li><span class="fn">desktopAPI.dialog.openFile()</span></li>
+        <li><span class="fn">desktopAPI.window.fullscreen()</span></li>
+        <li><span class="fn">desktopAPI.openExternal(url)</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Live Desktop API Demo -->
+  <div class="demo-section" id="desktop-demo">
+    <h2>🖥 Desktop API — Live Demo</h2>
+    <div id="not-desktop" style="color:var(--warn);font-size:.85rem;margin-bottom:1rem;">
+      ℹ Running in browser — these buttons work when packaged as a desktop EXE.
+    </div>
+    <div class="btn-row">
+      <button class="btn" onclick="demoInfo()">App Info</button>
+      <button class="btn" onclick="demoClipboard()">Copy to Clipboard</button>
+      <button class="btn" onclick="demoFullscreen()">Toggle Fullscreen</button>
+      <button class="btn green" onclick="demoOpenExternal()">Open External URL</button>
+    </div>
+    <pre id="api-output">// Output will appear here</pre>
+  </div>
+
+  <footer>
+    <strong>BEST TEAM</strong> NPM-to-EXE Converter &nbsp;·&nbsp;
+    Powered by Electron &amp; Python &nbsp;·&nbsp;
+    Drop your project in <code>input-project/</code> and run <code>build.bat</code>
+  </footer>
+
+</div>
+
+<script>
+  const out = document.getElementById('api-output');
+
+  function print(obj) {
+    out.textContent = JSON.stringify(obj, null, 2);
+  }
+
+  async function demoInfo() {
+    if (window.desktopAPI?.isDesktop) {
+      print(await window.desktopAPI.getAppInfo());
+    } else {
+      print({ note: 'Running in browser — not as desktop app', isDesktop: false });
+    }
+  }
+
+  async function demoClipboard() {
+    const text = 'Hello from BEST TEAM EXE! 🎉';
+    if (window.desktopAPI?.isDesktop) {
+      await window.desktopAPI.clipboard.write(text);
+      print({ copied: text });
+    } else {
+      try { await navigator.clipboard.writeText(text); } catch(_) {}
+      print({ copied: text, via: 'browser clipboard API' });
+    }
+  }
+
+  async function demoFullscreen() {
+    if (window.desktopAPI?.isDesktop) {
+      print(await window.desktopAPI.window.fullscreen());
+    } else {
+      document.fullscreenElement
+        ? document.exitFullscreen()
+        : document.documentElement.requestFullscreen();
+      print({ note: 'Browser fullscreen toggled' });
+    }
+  }
+
+  async function demoOpenExternal() {
+    if (window.desktopAPI?.isDesktop) {
+      print(await window.desktopAPI.openExternal('https://nodejs.org'));
+    } else {
+      window.open('https://nodejs.org', '_blank');
+      print({ opened: 'https://nodejs.org', via: 'browser' });
+    }
+  }
+
+  // Hide the browser warning if running as desktop
+  if (window.desktopAPI?.isDesktop) {
+    document.getElementById('not-desktop').style.display = 'none';
+  }
+</script>
+</body>
+</html>

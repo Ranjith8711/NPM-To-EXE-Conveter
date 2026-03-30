@@ -1,557 +1,402 @@
 #!/usr/bin/env python3
 """
-NPM Project -> Windows Desktop EXE Converter
-Python Automation Engine v1.0
-Developed By Ranjith R
+NPM Project → Windows Desktop EXE Converter
+Developed by BEST TEAM
+Main automation engine
 """
 
 import os
 import sys
 import json
-import shutil
-import subprocess
 import time
+import shutil
+import logging
+import argparse
+import subprocess
 import platform
-import re
 from pathlib import Path
 from datetime import datetime
 
-# ─────────────────────────────────────────────
-#  ANSI Colors
-# ─────────────────────────────────────────────
-class Colors:
-    RESET   = "\033[0m"
-    BOLD    = "\033[1m"
-    RED     = "\033[91m"
-    GREEN   = "\033[92m"
-    YELLOW  = "\033[93m"
-    BLUE    = "\033[94m"
-    MAGENTA = "\033[95m"
-    CYAN    = "\033[96m"
-    DIM     = "\033[2m"
+
+# ─── Paths ────────────────────────────────────────────────────────────────────
+ROOT_DIR        = Path(__file__).resolve().parent.parent
+INPUT_DIR       = ROOT_DIR / "input-project"
+OUTPUT_DIR      = ROOT_DIR / "output"
+ELECTRON_DIR    = ROOT_DIR / "electron-runtime"
+LOGS_DIR        = ROOT_DIR / "logs"
+CONVERTER_DIR   = ROOT_DIR / "converter-engine"
+BUILD_TOOLS_DIR = ROOT_DIR / "build-tools"
+
+# ─── ANSI Colors ──────────────────────────────────────────────────────────────
+class C:
+    RESET  = "\033[0m"
+    BOLD   = "\033[1m"
+    RED    = "\033[91m"
+    GREEN  = "\033[92m"
+    YELLOW = "\033[93m"
+    BLUE   = "\033[94m"
+    CYAN   = "\033[96m"
+    WHITE  = "\033[97m"
+    DIM    = "\033[2m"
+
 
 def banner():
-    print(Colors.CYAN + Colors.BOLD)
-    print("╔══════════════════════════════════════════════════════════╗")
-    print("║        NPM PROJECT → WINDOWS .EXE CONVERTER             ║")
-    print("║              Production Build Engine v1.0               ║")
-    print("║                                                          ║")
-    print("║              Developed By Ranjith R                      ║")
-    print("╚══════════════════════════════════════════════════════════╝")
-    print(Colors.RESET)
+    print(f"""
+{C.CYAN}{C.BOLD}
+╔══════════════════════════════════════════════════════════════╗
+║          NPM Project → Windows EXE Converter                ║
+║                   Developed by BEST TEAM                    ║
+╚══════════════════════════════════════════════════════════════╝
+{C.RESET}""")
 
-def log(level, msg):
-    ts = datetime.now().strftime("%H:%M:%S")
-    icons = {
-        "info":    Colors.BLUE    + "[INFO]" + Colors.RESET,
-        "success": Colors.GREEN   + "[OK  ]" + Colors.RESET,
-        "warn":    Colors.YELLOW  + "[WARN]" + Colors.RESET,
-        "error":   Colors.RED     + "[ERR ]" + Colors.RESET,
-        "step":    Colors.MAGENTA + "[STEP]" + Colors.RESET,
-        "build":   Colors.CYAN    + "[BUILD]" + Colors.RESET,
-    }
-    icon = icons.get(level, "[    ]")
-    print(Colors.DIM + ts + Colors.RESET + " " + icon + " " + msg)
 
-def separator(title=""):
-    width = 60
-    if title:
-        pad = (width - len(title) - 2) // 2
-        line = "-" * pad + " " + title + " " + "-" * pad
-        print("\n" + Colors.CYAN + Colors.BOLD + line + Colors.RESET + "\n")
-    else:
-        print("\n" + Colors.DIM + "-" * width + Colors.RESET + "\n")
+def step(num: int, total: int, msg: str):
+    print(f"\n{C.BLUE}[{num}/{total}]{C.RESET} {C.BOLD}{msg}{C.RESET}")
 
-# ─────────────────────────────────────────────
-#  Paths  — ROOT is the folder containing this
-#  script's parent, i.e. the converter root.
-#  build.py lives at:  <root>/python-automation/build.py
-#  So:  __file__  -> python-automation/build.py
-#       .parent   -> python-automation/
-#       .parent   -> <root>/
-# ─────────────────────────────────────────────
-ROOT_DIR     = Path(__file__).resolve().parent.parent
-INPUT_DIR    = ROOT_DIR / "input-project"
-ELECTRON_DIR = ROOT_DIR / "electron-runtime"
-OUTPUT_DIR   = ROOT_DIR / "output"
-LOGS_DIR     = ROOT_DIR / "logs"
-TEMP_DIR     = ROOT_DIR / ".build-temp"
-DEMO_DIR     = ROOT_DIR / "demo-app"
 
-MAX_RETRIES = 3
+def ok(msg: str):
+    print(f"  {C.GREEN}✔{C.RESET}  {msg}")
 
-def ensure_dir(path):
-    Path(path).mkdir(parents=True, exist_ok=True)
 
-def write_log(name, content):
-    ensure_dir(LOGS_DIR)
-    log_file = LOGS_DIR / (name + "_" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".log")
-    log_file.write_text(content, encoding="utf-8")
-    return log_file
+def warn(msg: str):
+    print(f"  {C.YELLOW}⚠{C.RESET}  {msg}")
 
-def run_cmd(cmd, cwd=None, env=None, capture=False, label=""):
-    attempt = 0
-    while attempt < MAX_RETRIES:
-        attempt += 1
-        if label:
-            log("build", label + " (attempt " + str(attempt) + "/" + str(MAX_RETRIES) + ")")
-        try:
-            if capture:
-                result = subprocess.run(
-                    cmd, shell=True,
-                    cwd=str(cwd) if cwd else None,
-                    capture_output=True, text=True, env=env
-                )
-                return result.returncode, result.stdout, result.stderr
-            else:
-                result = subprocess.run(
-                    cmd, shell=True,
-                    cwd=str(cwd) if cwd else None,
-                    env=env
-                )
-                if result.returncode == 0:
-                    return result.returncode, "", ""
-                if attempt < MAX_RETRIES:
-                    log("warn", "Command failed (exit " + str(result.returncode) + "), retrying in 3s...")
-                    time.sleep(3)
-                else:
-                    return result.returncode, "", ""
-        except Exception as e:
-            log("error", "Exception: " + str(e))
-            if attempt >= MAX_RETRIES:
-                return 1, "", str(e)
-            time.sleep(2)
-    return 1, "", "Max retries exceeded"
 
-def sanitize_name(name):
-    return re.sub(r'[^a-z0-9\-]', '-', name.lower()).strip('-') or "my-app"
+def err(msg: str):
+    print(f"  {C.RED}✖{C.RESET}  {msg}")
 
-# ─────────────────────────────────────────────
-#  Step 1: Prerequisites
-# ─────────────────────────────────────────────
-def check_prerequisites():
-    separator("PREREQUISITES CHECK")
-    ok = True
-    for tool, label in [("node --version", "Node.js"), ("npm --version", "NPM")]:
-        code, out, _ = run_cmd(tool, capture=True)
-        if code == 0:
-            version = out.strip().splitlines()[0] if out.strip() else "ok"
-            log("success", label + ": " + version)
-        else:
-            log("error", label + " not found — please install it")
-            ok = False
-    if not ok:
-        print()
-        print("  Install Node.js (includes NPM) from: https://nodejs.org")
-        print()
-        sys.exit(1)
 
-# ─────────────────────────────────────────────
-#  Step 2: Validate Input Project
-# ─────────────────────────────────────────────
-def validate_input_project():
-    separator("PROJECT VALIDATION")
+def info(msg: str):
+    print(f"  {C.DIM}→{C.RESET}  {msg}")
 
-    # CLI argument overrides the default input-project/ folder
-    if len(sys.argv) > 1:
-        project_dir = Path(sys.argv[1]).resolve()
-    else:
-        project_dir = INPUT_DIR
 
-    log("info", "Looking for project in: " + str(project_dir))
+# ─── Logger ───────────────────────────────────────────────────────────────────
+def setup_logger() -> logging.Logger:
+    LOGS_DIR.mkdir(exist_ok=True)
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_file = LOGS_DIR / f"build_{ts}.log"
 
-    # ── Folder missing entirely ───────────────────────────────────
-    if not project_dir.exists():
-        _show_no_project_error(project_dir)
+    logger = logging.getLogger("npm-to-exe")
+    logger.setLevel(logging.DEBUG)
 
-    # ── Folder exists but no package.json ────────────────────────
+    fh = logging.FileHandler(log_file, encoding="utf-8")
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+    logger.addHandler(fh)
+
+    logger.info(f"Build started — log: {log_file}")
+    print(f"  {C.DIM}Log → {log_file}{C.RESET}")
+    return logger
+
+
+# ─── Shell helpers ────────────────────────────────────────────────────────────
+def run(cmd: list[str], cwd: Path, logger: logging.Logger,
+        env: dict = None, timeout: int = 600) -> subprocess.CompletedProcess:
+    """Run a subprocess, stream output, log everything."""
+    cmd_str = " ".join(str(c) for c in cmd)
+    logger.debug(f"RUN: {cmd_str}  (cwd={cwd})")
+
+    merged_env = {**os.environ, **(env or {})}
+
+    proc = subprocess.Popen(
+        cmd,
+        cwd=str(cwd),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        env=merged_env,
+    )
+
+    lines = []
+    for line in proc.stdout:
+        line = line.rstrip()
+        lines.append(line)
+        logger.debug(f"  | {line}")
+        # Show important lines on console
+        if any(kw in line.lower() for kw in ["error", "warn", "failed", "success", "built"]):
+            print(f"     {C.DIM}{line}{C.RESET}")
+
+    proc.wait()
+    result = subprocess.CompletedProcess(cmd, proc.returncode, "\n".join(lines), "")
+    return result
+
+
+def npm(*args, cwd: Path, logger: logging.Logger, env=None) -> subprocess.CompletedProcess:
+    npm_cmd = "npm.cmd" if platform.system() == "Windows" else "npm"
+    return run([npm_cmd] + list(args), cwd=cwd, logger=logger, env=env)
+
+
+def node(*args, cwd: Path, logger: logging.Logger) -> subprocess.CompletedProcess:
+    return run(["node"] + list(args), cwd=cwd, logger=logger)
+
+
+# ─── Step 1: Validate project ─────────────────────────────────────────────────
+def validate_project(project_dir: Path, logger: logging.Logger) -> dict:
     pkg_path = project_dir / "package.json"
-
     if not pkg_path.exists():
-        # Maybe user put project inside a sub-folder of input-project/
-        found_sub = None
-        try:
-            for item in project_dir.iterdir():
-                if item.is_dir() and (item / "package.json").exists():
-                    found_sub = item
-                    break
-        except Exception:
-            pass
+        raise FileNotFoundError(f"No package.json found in {project_dir}")
 
-        if found_sub:
-            log("info", "Found project in sub-folder: " + found_sub.name)
-            log("info", "Using: " + str(found_sub))
-            project_dir = found_sub
-            pkg_path = found_sub / "package.json"
-        else:
-            _show_no_project_error(project_dir)
+    with open(pkg_path, encoding="utf-8") as f:
+        pkg = json.load(f)
 
-    # ── Read package.json ─────────────────────────────────────────
-    try:
-        with open(pkg_path, "r", encoding="utf-8") as f:
-            pkg = json.load(f)
-    except json.JSONDecodeError as e:
-        log("error", "package.json is malformed: " + str(e))
-        sys.exit(1)
+    logger.info(f"package.json loaded: name={pkg.get('name')}, version={pkg.get('version')}")
+    ok(f"Project: {C.BOLD}{pkg.get('name', 'unnamed')}{C.RESET} v{pkg.get('version', '1.0.0')}")
 
-    app_name    = pkg.get("name", "MyApplication")
-    app_version = pkg.get("version", "1.0.0")
-    app_desc    = pkg.get("description", "Desktop Application")
+    all_deps = {
+        **pkg.get("dependencies", {}),
+        **pkg.get("devDependencies", {}),
+    }
 
-    # Detect type
-    deps     = pkg.get("dependencies", {})
-    dev_deps = pkg.get("devDependencies", {})
-    all_deps = {}
-    all_deps.update(deps)
-    all_deps.update(dev_deps)
-    scripts  = pkg.get("scripts", {})
-
-    project_type = "vanilla"
-    if "react" in all_deps or "react-dom" in all_deps:
-        project_type = "react"
+    # Framework detection
+    framework = "vanilla"
+    if "next" in all_deps:
+        framework = "nextjs"
+    elif "react-dom" in all_deps:
+        framework = "react"
     elif "vue" in all_deps:
-        project_type = "vue"
+        framework = "vue"
     elif "vite" in all_deps:
-        project_type = "vite"
-    elif "webpack" in all_deps or "webpack-cli" in all_deps:
-        project_type = "webpack"
-    elif "next" in all_deps:
-        project_type = "next"
+        framework = "vite"
     elif "@angular/core" in all_deps:
-        project_type = "angular"
+        framework = "angular"
+    elif "webpack" in all_deps:
+        framework = "webpack"
+    elif "parcel" in all_deps:
+        framework = "parcel"
 
-    # Detect build script
-    build_script = None
-    for candidate in ["build", "build:prod", "dist", "compile", "generate"]:
-        if candidate in scripts:
-            build_script = candidate
-            break
+    info(f"Framework detected: {C.CYAN}{framework}{C.RESET}")
 
-    # Detect build output dir (check if it already exists from a previous build)
-    build_output = None
-    for candidate in ["dist", "build", "out", "public", ".next", "www"]:
-        if (project_dir / candidate).exists():
-            build_output = candidate
-            break
-    if not build_output and build_script:
-        build_output = "dist"
-    if not build_output:
-        build_output = "."
+    build_script = pkg.get("scripts", {}).get("build")
+    if not build_script and framework != "vanilla":
+        warn("No 'build' script found in package.json")
 
-    log("success", "Project:     " + app_name + " v" + app_version)
-    log("info",    "Type:        " + project_type.upper())
-    log("info",    "Build script: " + ("npm run " + build_script if build_script else "[none - static project]"))
-    log("info",    "Build output: " + build_output)
+    out_dirs = {
+        "react":   "build",
+        "nextjs":  "out",
+        "vue":     "dist",
+        "vite":    "dist",
+        "webpack": "dist",
+        "angular": "dist",
+        "parcel":  "dist",
+        "vanilla": ".",
+    }
 
     return {
-        "dir":          project_dir,
-        "pkg":          pkg,
-        "name":         app_name,
-        "version":      app_version,
-        "description":  app_desc,
-        "type":         project_type,
-        "build_script": build_script,
-        "build_output": build_output,
-        "scripts":      scripts,
+        "pkg":         pkg,
+        "name":        pkg.get("name", "app"),
+        "version":     pkg.get("version", "1.0.0"),
+        "framework":   framework,
+        "has_build":   bool(build_script),
+        "output_dir":  out_dirs[framework],
+        "project_dir": project_dir,
     }
 
-def _show_no_project_error(project_dir):
-    print()
-    print(Colors.RED + "  ╔══════════════════════════════════════════════════════════╗")
-    print("  ║  NO PROJECT FOUND                                        ║")
-    print("  ╚══════════════════════════════════════════════════════════╝" + Colors.RESET)
-    print()
-    print("  Expected to find your project at:")
-    print("  " + Colors.YELLOW + str(project_dir) + Colors.RESET)
-    print()
-    print("  HOW TO FIX:")
-    print("  ─────────────────────────────────────────────────────────")
-    print("  1. Copy your entire NPM project folder contents into:")
-    print("     " + Colors.CYAN + str(INPUT_DIR) + Colors.RESET)
-    print()
-    print("     Your input-project\\ folder should look like:")
-    print("       input-project\\")
-    print("         package.json    <-- this file must exist")
-    print("         src\\")
-    print("         public\\")
-    print("         ...")
-    print()
-    print("  2. Then run build.bat again.")
-    print()
-    print("  ─────────────────────────────────────────────────────────")
-    print("  OR: To test with the built-in demo app right now,")
-    print("  copy the demo-app\\ contents into input-project\\")
-    print()
-    print("  OR: Drag your project folder onto build.bat to specify")
-    print("  a custom path directly.")
-    print("  ─────────────────────────────────────────────────────────")
-    print()
 
-    # Offer to auto-copy demo app
-    if DEMO_DIR.exists() and (DEMO_DIR / "package.json").exists():
-        try:
-            answer = input("  Copy the built-in demo app and run now? (Y/N): ").strip().lower()
-        except (KeyboardInterrupt, EOFError):
-            answer = "n"
+# ─── Step 2: Install dependencies ─────────────────────────────────────────────
+def install_deps(project_dir: Path, logger: logging.Logger):
+    lock = project_dir / "package-lock.json"
+    cmd  = ["ci"] if lock.exists() else ["install"]
+    label = "npm ci" if lock.exists() else "npm install"
+    info(f"Running {label} …")
 
-        if answer == "y":
-            ensure_dir(INPUT_DIR)
-            for item in DEMO_DIR.iterdir():
-                dest = INPUT_DIR / item.name
-                if item.is_dir():
-                    if dest.exists():
-                        shutil.rmtree(dest)
-                    shutil.copytree(str(item), str(dest))
-                else:
-                    shutil.copy2(str(item), str(dest))
-            print()
-            log("success", "Demo app copied to input-project\\")
-            print()
-            # Restart validation with new project
-            return  # caller will re-call us — but we need to restart main
+    for attempt in range(1, 4):
+        result = npm(*cmd, cwd=project_dir, logger=logger)
+        if result.returncode == 0:
+            ok("Dependencies installed")
+            return
+        warn(f"Attempt {attempt}/3 failed — retrying in 3 s …")
+        time.sleep(3)
+
+    raise RuntimeError("npm install failed after 3 attempts — check logs/")
+
+
+# ─── Step 3: Build web project ────────────────────────────────────────────────
+def build_web(meta: dict, logger: logging.Logger) -> Path:
+    project_dir = meta["project_dir"]
+
+    if meta["framework"] == "vanilla":
+        ok("Vanilla project — no build step needed")
+        return project_dir
+
+    if not meta["has_build"]:
+        warn("No build script — treating as static project")
+        return project_dir
+
+    info("Building web project …")
+    result = npm("run", "build", cwd=project_dir, logger=logger,
+                 env={"NODE_ENV": "production", "GENERATE_SOURCEMAP": "false"})
+
+    if result.returncode != 0:
+        raise RuntimeError("Web build failed — check logs/")
+
+    out = project_dir / meta["output_dir"]
+    if not out.exists():
+        # Try common fallbacks
+        for fallback in ["build", "dist", "out", ".next", "www"]:
+            if (project_dir / fallback).exists():
+                out = project_dir / fallback
+                warn(f"Output dir not as expected — using {fallback}/")
+                break
         else:
-            sys.exit(0)
-    else:
-        sys.exit(1)
+            raise RuntimeError(f"Build output directory not found. Expected: {meta['output_dir']}")
 
-# ─────────────────────────────────────────────
-#  Step 3: Install Dependencies
-# ─────────────────────────────────────────────
-def install_project_deps(project):
-    separator("INSTALLING PROJECT DEPENDENCIES")
-    project_dir = project["dir"]
-    nm = project_dir / "node_modules"
+    ok(f"Web build complete → {out.relative_to(project_dir)}/")
+    return out
 
-    if nm.exists():
-        log("info", "node_modules found — running npm install to ensure up to date")
 
-    code, out, err = run_cmd("npm install", cwd=project_dir, label="npm install")
+# ─── Step 4: Prepare Electron runtime ─────────────────────────────────────────
+def prepare_electron(meta: dict, build_output: Path, logger: logging.Logger):
+    webapp_dir = ELECTRON_DIR / "webapp"
+    if webapp_dir.exists():
+        shutil.rmtree(webapp_dir)
 
-    if code != 0:
-        log("error", "Dependency installation failed")
-        write_log("npm-install", err)
-        sys.exit(1)
-
-    log("success", "Dependencies installed")
-
-# ─────────────────────────────────────────────
-#  Step 4: Build the Web Project
-# ─────────────────────────────────────────────
-def build_web_project(project):
-    separator("BUILDING WEB PROJECT")
-
-    build_script = project["build_script"]
-
-    if not build_script:
-        log("info", "No build script — using project as-is (static project)")
-        return
-
-    log("build", "Running: npm run " + build_script)
-
-    env = os.environ.copy()
-    env["NODE_ENV"] = "production"
-    env["GENERATE_SOURCEMAP"] = "false"
-    env["INLINE_RUNTIME_CHUNK"] = "false"
-
-    code, out, err = run_cmd(
-        "npm run " + build_script,
-        cwd=project["dir"],
-        env=env,
-        label="npm run " + build_script,
-        capture=True
-    )
-
-    write_log("npm-build", out + "\n--- STDERR ---\n" + err)
-
-    if code != 0:
-        log("error", "Web project build failed — last 20 lines:")
-        lines = (out + "\n" + err).splitlines()
-        for line in lines[-20:]:
-            print("    " + Colors.RED + line + Colors.RESET)
-        log("info", "Full log saved to logs/ folder")
-        sys.exit(1)
-
-    log("success", "Web project built successfully")
-
-    output_path = project["dir"] / project["build_output"]
-    if output_path.exists():
-        files = list(output_path.rglob("*"))
-        size  = sum(f.stat().st_size for f in files if f.is_file())
-        log("info", "Build output: " + str(len(files)) + " files, " + str(size // 1024) + " KB")
-
-# ─────────────────────────────────────────────
-#  Step 5: Prepare Electron Runtime
-# ─────────────────────────────────────────────
-def prepare_electron_runtime(project):
-    separator("PREPARING ELECTRON RUNTIME")
-    ensure_dir(TEMP_DIR)
-
-    electron_dest = TEMP_DIR / "electron-app"
-
-    if electron_dest.exists():
-        shutil.rmtree(str(electron_dest))
-
-    shutil.copytree(str(ELECTRON_DIR), str(electron_dest))
-    log("success", "Electron runtime template copied")
-
-    # Copy built web assets into electron-app/webapp
-    webapp_dest = electron_dest / "webapp"
-    if webapp_dest.exists():
-        shutil.rmtree(str(webapp_dest))
-
-    project_dir  = project["dir"]
-    build_output = project["build_output"]
-
-    if project["build_script"] and build_output != ".":
-        source_path = project_dir / build_output
-    else:
-        source_path = project_dir
-
-    shutil.copytree(
-        str(source_path),
-        str(webapp_dest),
-        ignore=shutil.ignore_patterns(
-            "node_modules", ".git", ".env", ".env.*",
-            "*.log", ".DS_Store", "Thumbs.db"
-        )
-    )
-
-    file_count = len(list(webapp_dest.rglob("*")))
-    log("success", "Web assets copied — " + str(file_count) + " items")
-
-    # Patch package.json
-    electron_pkg_path = electron_dest / "package.json"
-    with open(str(electron_pkg_path), "r", encoding="utf-8") as f:
-        electron_pkg = json.load(f)
-
-    electron_pkg["name"]        = sanitize_name(project["name"])
-    electron_pkg["version"]     = project["version"]
-    electron_pkg["description"] = project["description"]
-    electron_pkg["build"]["productName"] = project["name"]
-    electron_pkg["build"]["appId"] = "com.desktop." + sanitize_name(project["name"])
-    electron_pkg["build"]["directories"]["output"] = str(OUTPUT_DIR)
-
-    with open(str(electron_pkg_path), "w", encoding="utf-8") as f:
-        json.dump(electron_pkg, f, indent=2)
-
-    log("success", "Electron package.json configured")
+    info(f"Copying build output → electron-runtime/webapp/ …")
+    shutil.copytree(str(build_output), str(webapp_dir))
+    ok(f"Copied {sum(1 for _ in webapp_dir.rglob('*'))} files")
 
     # Patch main.js
-    main_js_path = electron_dest / "src" / "main.js"
-    if main_js_path.exists():
-        content = main_js_path.read_text(encoding="utf-8")
-        content = content.replace("__APP_NAME__",    project["name"])
-        content = content.replace("__APP_VERSION__", project["version"])
-        main_js_path.write_text(content, encoding="utf-8")
-        log("success", "main.js patched with app name and version")
+    main_js = ELECTRON_DIR / "src" / "main.js"
+    text = main_js.read_text(encoding="utf-8")
+    text = text.replace("__APP_NAME__",    meta["name"])
+    text = text.replace("__APP_VERSION__", meta["version"])
+    main_js.write_text(text, encoding="utf-8")
 
-    return electron_dest
+    # Patch electron package.json
+    epkg_path = ELECTRON_DIR / "package.json"
+    epkg = json.loads(epkg_path.read_text(encoding="utf-8"))
+    epkg["name"]        = meta["name"]
+    epkg["version"]     = meta["version"]
+    epkg["description"] = f"{meta['name']} — packaged by BEST TEAM converter"
+    epkg["build"]["productName"] = meta["name"].title()
+    epkg["build"]["appId"]       = f"com.besttean.{meta['name'].lower().replace(' ','-')}"
+    epkg_path.write_text(json.dumps(epkg, indent=2), encoding="utf-8")
 
-# ─────────────────────────────────────────────
-#  Step 6: Install Electron Dependencies
-# ─────────────────────────────────────────────
-def install_electron_deps(electron_dest):
-    separator("INSTALLING ELECTRON DEPENDENCIES")
-    log("info", "Installing Electron + electron-builder (may take a few minutes)...")
+    ok("Electron runtime configured")
 
-    env = os.environ.copy()
-    env["ELECTRON_MIRROR"] = "https://npmmirror.com/mirrors/electron/"
 
-    code, out, err = run_cmd(
-        "npm install",
-        cwd=electron_dest,
-        env=env,
-        label="npm install (electron)"
+# ─── Step 5: Install Electron deps ────────────────────────────────────────────
+def install_electron_deps(logger: logging.Logger):
+    info("Installing Electron dependencies …")
+    result = npm("install", cwd=ELECTRON_DIR, logger=logger)
+    if result.returncode != 0:
+        raise RuntimeError("Electron npm install failed")
+    ok("Electron dependencies ready")
+
+
+# ─── Step 6: Package EXE ──────────────────────────────────────────────────────
+def package_exe(meta: dict, logger: logging.Logger):
+    info("Running electron-builder …")
+    npm_cmd = "npm.cmd" if platform.system() == "Windows" else "npm"
+    result = run(
+        [npm_cmd, "run", "dist"],
+        cwd=ELECTRON_DIR,
+        logger=logger,
     )
+    if result.returncode != 0:
+        raise RuntimeError("electron-builder failed — check logs/")
+    ok("EXE packaging complete")
 
-    if code != 0:
-        log("error", "Electron dependency installation failed")
-        write_log("electron-install", out + err)
-        sys.exit(1)
 
-    log("success", "Electron dependencies installed")
+# ─── Step 7: Verify output ────────────────────────────────────────────────────
+def verify_output(meta: dict, logger: logging.Logger):
+    dist_dir = ELECTRON_DIR / "dist"
+    exes = list(dist_dir.glob("**/*.exe")) if dist_dir.exists() else []
 
-# ─────────────────────────────────────────────
-#  Step 7: Package EXE
-# ─────────────────────────────────────────────
-def package_exe(electron_dest, project):
-    separator("PACKAGING WINDOWS EXECUTABLE")
-    ensure_dir(OUTPUT_DIR)
+    if not exes:
+        raise RuntimeError("No .exe files found in electron-runtime/dist/")
 
-    log("build", "Running electron-builder — this takes 2-5 minutes...")
+    OUTPUT_DIR.mkdir(exist_ok=True)
+    final = []
+    for exe in exes:
+        dest = OUTPUT_DIR / exe.name
+        shutil.copy2(str(exe), str(dest))
+        size_mb = dest.stat().st_size / 1_048_576
+        ok(f"{exe.name}  ({size_mb:.1f} MB)")
+        final.append(dest)
+        logger.info(f"Output: {dest} ({size_mb:.1f} MB)")
 
-    env = os.environ.copy()
-    env["CSC_IDENTITY_AUTO_DISCOVERY"] = "false"
+    return final
 
-    output_str = str(OUTPUT_DIR).replace("\\", "/")
-    cmd = 'npx electron-builder --win --x64 --config.directories.output="' + output_str + '"'
 
-    code, out, err = run_cmd(cmd, cwd=electron_dest, env=env, label="electron-builder", capture=True)
-    write_log("electron-builder", out + "\n--- STDERR ---\n" + err)
-
-    if code != 0:
-        log("warn", "Full build failed, trying portable EXE only...")
-        cmd2 = 'npx electron-builder --win portable --x64 --config.directories.output="' + output_str + '"'
-        code, out, err = run_cmd(cmd2, cwd=electron_dest, env=env, label="electron-builder portable", capture=True)
-        write_log("electron-builder-portable", out + "\n--- STDERR ---\n" + err)
-
-        if code != 0:
-            log("error", "EXE packaging failed. Check logs/ folder.")
-            sys.exit(1)
-
-    exe_files = list(OUTPUT_DIR.glob("**/*.exe"))
-    if not exe_files:
-        log("error", "No .exe found in output/ after packaging")
-        sys.exit(1)
-
-    log("success", str(len(exe_files)) + " EXE file(s) generated")
-    return exe_files
-
-# ─────────────────────────────────────────────
-#  Final Report
-# ─────────────────────────────────────────────
-def final_report(project, exe_files, start_time):
-    separator("BUILD COMPLETE")
-    elapsed = time.time() - start_time
-
-    print(Colors.GREEN + Colors.BOLD)
-    print("  SUCCESS!")
-    print(Colors.RESET)
-
-    log("success", "Application:  " + project["name"] + " v" + project["version"])
-    log("success", "Build time:   " + str(round(elapsed, 1)) + " seconds")
-    log("success", "Output dir:   " + str(OUTPUT_DIR))
-    print()
-
-    for exe in exe_files:
-        size_mb = exe.stat().st_size / (1024 * 1024)
-        print("  " + Colors.CYAN + "  " + exe.name + Colors.RESET + "  (" + str(round(size_mb, 1)) + " MB)")
-
-    print()
-    print(Colors.DIM + "  The .exe is fully self-contained — no Node.js required on target machine." + Colors.RESET)
-    print(Colors.DIM + "  Developed By Ranjith R " + Colors.RESET)
-    print()
-
-# ─────────────────────────────────────────────
-#  MAIN
-# ─────────────────────────────────────────────
+# ─── Main ─────────────────────────────────────────────────────────────────────
 def main():
-    start_time = time.time()
     banner()
 
-    log("info", "Converter root: " + str(ROOT_DIR))
-    log("info", "Input project:  " + str(INPUT_DIR))
-    log("info", "Output folder:  " + str(OUTPUT_DIR))
-    print()
+    parser = argparse.ArgumentParser(description="NPM → EXE Converter by BEST TEAM")
+    parser.add_argument("project", nargs="?", default=str(INPUT_DIR),
+                        help="Path to your NPM project (default: input-project/)")
+    parser.add_argument("--skip-web-build", action="store_true",
+                        help="Skip npm run build (use if already built)")
+    args = parser.parse_args()
 
-    check_prerequisites()
-    project       = validate_input_project()
-    install_project_deps(project)
-    build_web_project(project)
-    electron_dest = prepare_electron_runtime(project)
-    install_electron_deps(electron_dest)
-    exe_files     = package_exe(electron_dest, project)
-    final_report(project, exe_files, start_time)
+    project_dir = Path(args.project).resolve()
+    if not project_dir.exists():
+        err(f"Project directory not found: {project_dir}")
+        sys.exit(1)
+
+    logger = setup_logger()
+    start  = time.time()
+    TOTAL  = 7
+
+    try:
+        step(1, TOTAL, "Validating project")
+        meta = validate_project(project_dir, logger)
+
+        step(2, TOTAL, "Installing project dependencies")
+        install_deps(project_dir, logger)
+
+        step(3, TOTAL, "Building web project")
+        if args.skip_web_build:
+            warn("--skip-web-build: skipping npm run build")
+            build_output = project_dir / meta["output_dir"]
+        else:
+            build_output = build_web(meta, logger)
+
+        step(4, TOTAL, "Preparing Electron runtime")
+        prepare_electron(meta, build_output, logger)
+
+        step(5, TOTAL, "Installing Electron dependencies")
+        install_electron_deps(logger)
+
+        step(6, TOTAL, "Packaging Windows EXE")
+        package_exe(meta, logger)
+
+        step(7, TOTAL, "Verifying output")
+        outputs = verify_output(meta, logger)
+
+        elapsed = time.time() - start
+        print(f"""
+{C.GREEN}{C.BOLD}
+╔══════════════════════════════════════════╗
+║          BUILD SUCCESSFUL! 🎉            ║
+╚══════════════════════════════════════════╝
+{C.RESET}
+  Time:    {elapsed/60:.1f} min
+  Output:  {OUTPUT_DIR}/
+  Files:   {len(outputs)} executable(s)
+
+  {C.DIM}Developed by BEST TEAM{C.RESET}
+""")
+
+    except Exception as exc:
+        elapsed = time.time() - start
+        logger.exception("Build failed")
+        print(f"""
+{C.RED}{C.BOLD}
+╔══════════════════════════════════════════╗
+║              BUILD FAILED ✖              ║
+╚══════════════════════════════════════════╝
+{C.RESET}
+  Error:  {exc}
+  Time:   {elapsed/60:.1f} min
+  Logs:   {LOGS_DIR}/
+
+  Run with --help for usage information.
+""")
+        sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

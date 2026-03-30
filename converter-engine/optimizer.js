@@ -1,89 +1,106 @@
-'use strict';
 /**
- * Asset Optimizer
- * Post-build optimization for web assets before Electron packaging
- * Developed By Ranjith R
+ * converter-engine/optimizer.js
+ * Asset cleanup & size optimization before Electron packaging
+ * BEST TEAM
  */
+
+'use strict';
 
 const fs   = require('fs');
 const path = require('path');
 
+// Extensions to strip from build output (saves space in final EXE)
+const REMOVE_EXTENSIONS = new Set([
+  '.map',   // source maps
+  '.ts',    // leftover TS source
+  '.tsx',
+  '.jsx',
+  '.scss',
+  '.sass',
+  '.less',
+]);
+
+// Files/directories to remove from build output
+const REMOVE_NAMES = new Set([
+  '.DS_Store',
+  'Thumbs.db',
+  '.git',
+  '.gitignore',
+  'node_modules',
+  '*.test.js',
+  '*.spec.js',
+]);
+
 /**
- * Optimize build output directory
- * Removes unnecessary files, logs stats
+ * Walk a directory recursively.
+ * @param {string} dir
+ * @returns {string[]} Absolute file paths
  */
-function optimizeAssets(buildDir) {
+function walk(dir) {
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  const files   = [];
+  for (const e of entries) {
+    const full = path.join(dir, e.name);
+    if (e.isDirectory()) files.push(...walk(full));
+    else                  files.push(full);
+  }
+  return files;
+}
+
+/**
+ * Strip unnecessary files from a build output directory.
+ * @param {string} buildDir
+ * @returns {{ removed: number, savedBytes: number }}
+ */
+function optimizeBuildOutput(buildDir) {
   if (!fs.existsSync(buildDir)) {
-    console.warn(`[optimizer] Directory not found: ${buildDir}`);
-    return { removed: 0, savedBytes: 0 };
+    throw new Error(`Build directory not found: ${buildDir}`);
   }
 
   let removed    = 0;
   let savedBytes = 0;
 
-  // Patterns to remove from build output
-  const removePatterns = [
-    /\.map$/i,          // Source maps (reduce size)
-    /\.LICENSE\.txt$/i, // License files bundled by webpack
-    /thumbs\.db$/i,     // Windows thumbnail cache
-    /\.DS_Store$/i,     // macOS metadata
-    /desktop\.ini$/i,   // Windows folder config
-  ];
+  const files = walk(buildDir);
+  for (const filePath of files) {
+    const ext  = path.extname(filePath).toLowerCase();
+    const base = path.basename(filePath);
 
-  walkDir(buildDir, (filePath) => {
-    const basename = path.basename(filePath);
-    if (removePatterns.some(p => p.test(basename))) {
+    if (REMOVE_EXTENSIONS.has(ext) || REMOVE_NAMES.has(base)) {
       try {
         const size = fs.statSync(filePath).size;
         fs.unlinkSync(filePath);
         removed++;
         savedBytes += size;
-      } catch { /* ignore */ }
+      } catch (_) { /* skip locked files */ }
     }
-  });
+  }
+
+  // Remove empty directories
+  removeEmptyDirs(buildDir);
 
   return { removed, savedBytes };
 }
 
-/**
- * Walk directory recursively
- */
-function walkDir(dir, fn) {
-  if (!fs.existsSync(dir)) return;
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const fullPath = path.join(dir, entry.name);
-    if (entry.isDirectory()) walkDir(fullPath, fn);
-    else fn(fullPath);
+function removeEmptyDirs(dir) {
+  const entries = fs.readdirSync(dir);
+  for (const e of entries) {
+    const full = path.join(dir, e);
+    if (fs.statSync(full).isDirectory()) {
+      removeEmptyDirs(full);
+      if (fs.readdirSync(full).length === 0) {
+        fs.rmdirSync(full);
+      }
+    }
   }
 }
 
 /**
- * Get directory stats
+ * Report stats about a directory.
  */
-function getDirStats(dir) {
-  let totalSize  = 0;
-  let fileCount  = 0;
-  const extMap   = {};
-
-  walkDir(dir, (filePath) => {
-    const size = fs.statSync(filePath).size;
-    totalSize += size;
-    fileCount++;
-    const ext = path.extname(filePath).toLowerCase() || '(no ext)';
-    extMap[ext] = (extMap[ext] || 0) + 1;
-  });
-
-  return { totalSize, fileCount, extMap };
+function dirStats(dir) {
+  const files     = walk(dir);
+  const totalSize = files.reduce((acc, f) => acc + fs.statSync(f).size, 0);
+  return { fileCount: files.length, totalSizeMB: (totalSize / 1_048_576).toFixed(2) };
 }
 
-module.exports = { optimizeAssets, getDirStats, walkDir };
-
-if (require.main === module) {
-  const dir = process.argv[2];
-  if (!dir) { console.error('Usage: node optimizer.js <build-dir>'); process.exit(1); }
-  const before = getDirStats(dir);
-  const result = optimizeAssets(dir);
-  const after  = getDirStats(dir);
-  console.log(`Removed: ${result.removed} files, saved ${(result.savedBytes/1024).toFixed(1)} KB`);
-  console.log(`Total: ${after.fileCount} files, ${(after.totalSize/1024/1024).toFixed(2)} MB`);
-}
+module.exports = { optimizeBuildOutput, dirStats };
