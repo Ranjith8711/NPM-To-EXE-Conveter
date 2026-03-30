@@ -1,0 +1,17 @@
+{
+  "$comment": "Optional BEST TEAM converter config. Place this in your project root alongside package.json.",
+  "window": {
+    "width":    1280,
+    "height":    800,
+    "minWidth":  800,
+    "minHeight": 600,
+    "resizable": true,
+    "fullscreen": false,
+    "frame": true
+  },
+  "icon": null,
+  "skipOptimize": false,
+  "devTools": false,
+  "singleInstance": true,
+  "extraElectronConfig": {}
+}
